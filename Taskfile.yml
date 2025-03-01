@@ -1,0 +1,118 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+---
+version: "3"
+
+set:
+  - pipefail
+
+silent: false
+
+vars:
+  SYS_GO:
+    sh: which go
+  SYS_GOFMT:
+    sh: which gofmt
+  SYS_GOLANGCI_LINT:
+    sh: which golangci-lint
+  SYS_GOIMPORTS:
+    sh: which goimports
+  BINARY_DIR: dist
+  BINARY_NAME: yc-quotas-exporter
+  LATEST_COMMIT_SHA:
+    sh: git rev-parse --short HEAD
+
+tasks:
+  default:
+    desc: Help
+    cmd: task --list-all
+
+  run:cmd:
+    desc: "Run as go run cmd/{{ .BINARY_NAME }}/main.go"
+    preconditions:
+      - "test -f cmd/{{ .BINARY_NAME }}/main.go"
+    cmds:
+      - "{{ .SYS_GO }} run cmd/{{ .BINARY_NAME }}/main.go"
+
+  run:bin:
+    desc: Run as binary
+    deps:
+      - build:bin
+    preconditions:
+      - "test -f {{ .BINARY_DIR }}/{{ .BINARY_NAME }}"
+    cmds:
+      - "{{ .BINARY_DIR }}/{{ .BINARY_NAME }}"
+
+  install-deps:
+    desc: Install all requirements
+    preconditions:
+      - test -f go.mod
+      - test -f go.sum
+    cmds:
+      - "GOPROXY=direct {{ .SYS_GO }} mod tidy"
+      - easyp mod download
+
+  build:bin:
+    desc: Build bin file from go
+    preconditions:
+      - "test -f cmd/{{ .BINARY_NAME }}/main.go"
+    cmds:
+      - "GOPROXY=direct {{ .SYS_GO }} mod download"
+      - "{{ .SYS_GO }} build -o ./{{ .BINARY_DIR }}/{{ .BINARY_NAME }} cmd/{{ .BINARY_NAME }}/main.go"
+    env:
+      CGO_ENABLED: 0
+
+  build:amd64:
+    desc: Build bin file from go for Linux amd64
+    cmds:
+      - "GOOS=linux GOARCH=amd64 go build -o ./{{ .BINARY_DIR }}/{{ .BINARY_NAME }}-amd64 cmd/{{ .BINARY_NAME }}/main.go"
+
+  build:img:
+    desc: Build docker image
+    preconditions:
+      - test -f Dockerfile
+    cmds:
+      - "{{ .SYS_DOCKER }} build -t {{ .DOCKER_REPO }}:{{ .LATEST_COMMIT_SHA }} ."
+
+  fmt:
+    desc: Run go fmt
+    cmds:
+      - "{{ .SYS_GOFMT }} -s -w ."
+      - "{{ .SYS_GOIMPORTS }} -format-only -d -l -v -w ."
+
+  vet:
+    desc: Run go vet ./...
+    cmds:
+      - "{{ .SYS_GO }} vet ./..."
+
+  clean:
+    desc: Clean all artifacts
+    cmds:
+      - "rm -rf {{ .BINARY_DIR }}"
+      - rm -f cover.out
+
+  test:
+    desc: Run test
+    cmds:
+      - task: test:short
+      - task: test:coverage
+
+  test:short:
+    desc: Run short test
+    cmds:
+      - "{{ .SYS_GO }} test --short -coverprofile=cover.out -v ./..."
+
+  test:coverage:
+    desc: Run test coverage
+    cmds:
+      - "{{ .SYS_GO }} tool cover -func=cover.out"
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - task: fmt
+      - "{{ .SYS_GOLANGCI_LINT }} -v run --out-format=colored-line-number --fix"
+
+  bearer:
+    desc: Scan codebase with Bearer
+    cmds:
+      - bearer scan .
