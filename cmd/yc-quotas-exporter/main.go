@@ -14,7 +14,7 @@ func main() {
 	flag.Parse()
 
 	if configPath == nil {
-		log.Fatal("configPath is required")
+		log.Fatal("config is required")
 	}
 
 	fmt.Println("config inicialization is done")
@@ -31,5 +31,4 @@ func main() {
 	fmt.Println("client inicialization is done")
 
 	client.QuotaLimitListService()
-
 }
