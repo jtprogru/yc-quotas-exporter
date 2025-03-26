@@ -649,6 +649,13 @@ linters-settings:
       - name: unhandled-error
         severity: warning
         disabled: false
+        arguments:
+          - "fmt.Print"
+          - "fmt.Println"
+          - "fmt.Printf"
+          - "log.Print"
+          - "log.Println"
+          - "log.Printf"
       # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#unnecessary-stmt
       - name: unnecessary-stmt
         severity: warning

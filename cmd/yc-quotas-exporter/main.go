@@ -22,5 +22,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error creating Exporter: %v", err)
 	}
-	pe.Run()
+	log.Fatal(pe.Run())
 }

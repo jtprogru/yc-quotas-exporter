@@ -6,10 +6,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/jtprogru/yc-quotas-exporter/internal/config"
-
 	quotamanager "github.com/yandex-cloud/go-genproto/yandex/cloud/quotamanager/v1"
 	ycsdk "github.com/yandex-cloud/go-sdk"
+
+	"github.com/jtprogru/yc-quotas-exporter/internal/config"
 )
 
 const (
@@ -27,7 +27,8 @@ func NewClient(cfg *config.Config) (*Client, error) {
 		Credentials: ycsdk.NewIAMTokenCredentials(cfg.Token),
 	})
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return nil, err
 	}
 	return &Client{
 		Config: cfg,
@@ -44,7 +45,8 @@ func (c *Client) QuotaLimitListService() {
 	})
 	if err != nil {
 		fmt.Println("res, err := c.SDK.QuotaManager().QuotaLimit().ListServices(ctx, nil)")
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	for _, service := range res.Services {
 		fmt.Println(service)
@@ -52,7 +54,7 @@ func (c *Client) QuotaLimitListService() {
 	}
 }
 
-func (c *Client) QuotaLimitServiceGet(serviceId string) {
+func (c *Client) QuotaLimitServiceGet(serviceID string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.Config.Timeout)*time.Second)
 	defer cancel()
 
@@ -61,16 +63,17 @@ func (c *Client) QuotaLimitServiceGet(serviceId string) {
 			Id:   c.Config.CloudID,
 			Type: defaultResourceType,
 		},
-		QuotaId: serviceId,
+		QuotaId: serviceID,
 	})
 	if err != nil {
 		fmt.Println("c.QuotaLimitServiceGet(...)")
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	fmt.Println(res)
 }
 
-func (c *Client) QuotaLimitList(serviceId string) {
+func (c *Client) QuotaLimitList(serviceID string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.Config.Timeout)*time.Second)
 	defer cancel()
 
@@ -79,11 +82,12 @@ func (c *Client) QuotaLimitList(serviceId string) {
 			Id:   c.Config.CloudID,
 			Type: defaultResourceType,
 		},
-		Service: serviceId,
+		Service: serviceID,
 	})
 	if err != nil {
 		fmt.Println("c.QuotaLimitList()")
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	fmt.Println(res)
 }

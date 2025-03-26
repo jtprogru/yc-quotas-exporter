@@ -6,14 +6,14 @@ import (
 )
 
 const (
-	defaultPort    = 8080
+	defaultPort    = "8080"
 	defaultHost    = "0.0.0.0"
 	defaultTimeout = 5
 	defaultDebug   = false
 )
 
 type Config struct {
-	Port    uint16
+	Port    string
 	Host    string
 	Timeout int
 	Debug   bool
@@ -27,7 +27,7 @@ func New() (*Config, error) {
 }
 
 func initConfig() *Config {
-	port := flag.Uint("port", defaultPort, "Port to listen on")
+	port := flag.String("port", defaultPort, "Port to listen on")
 	host := flag.String("host", defaultHost, "Host to listen on")
 	timeout := flag.Int("timeout", defaultTimeout, "Request timeout in seconds")
 	debug := flag.Bool("debug", defaultDebug, "Enable debug mode")
@@ -45,7 +45,7 @@ func initConfig() *Config {
 	}
 
 	return &Config{
-		Port:    uint16(*port),
+		Port:    *port,
 		Host:    *host,
 		Timeout: *timeout,
 		Debug:   *debug,
