@@ -2,117 +2,104 @@
 ---
 version: "3"
 
-set:
-  - pipefail
-
-silent: false
-
 vars:
-  SYS_GO:
-    sh: which go
-  SYS_GOFMT:
-    sh: which gofmt
-  SYS_GOLANGCI_LINT:
-    sh: which golangci-lint
-  SYS_GOIMPORTS:
-    sh: which goimports
-  BINARY_DIR: dist
+  HOME:
+    sh: echo $HOME
   BINARY_NAME: yc-quotas-exporter
-  LATEST_COMMIT_SHA:
-    sh: git rev-parse --short HEAD
+  VERSION: dev
+  COMMIT: dev
+  DATE:
+    sh: date -u '+%Y-%m-%dT%H:%M:%SZ'
+  GOLDFLAGS: "-X main.Version={{.VERSION}} -X main.Commit={{.COMMIT}} -X main.Date={{.DATE}} -X main.BuiltBy=taskfile"
 
 tasks:
   default:
-    desc: Help
-    cmd: task --list-all
+    cmds:
+      - task --list
+    silent: true
 
   run:cmd:
-    desc: "Run as go run cmd/{{ .BINARY_NAME }}/main.go"
-    preconditions:
-      - "test -f cmd/{{ .BINARY_NAME }}/main.go"
+    desc: Run as go run cmd/{{ .BINARY_NAME }}/main.go
     cmds:
-      - "{{ .SYS_GO }} run cmd/{{ .BINARY_NAME }}/main.go"
+      - "go run cmd/{{ .BINARY_NAME }}/main.go {{ .CLI_ARGS }}"
 
   run:bin:
     desc: Run as binary
     deps:
       - build:bin
-    preconditions:
-      - "test -f {{ .BINARY_DIR }}/{{ .BINARY_NAME }}"
     cmds:
-      - "{{ .BINARY_DIR }}/{{ .BINARY_NAME }}"
+      - "./dist/{{ .BINARY_NAME }} {{ .CLI_ARGS }}"
 
-  install-deps:
+  tidy:
     desc: Install all requirements
     preconditions:
       - test -f go.mod
-      - test -f go.sum
     cmds:
-      - "GOPROXY=direct {{ .SYS_GO }} mod tidy"
-      - easyp mod download
+      - "go mod tidy"
 
   build:bin:
     desc: Build bin file from go
     preconditions:
-      - "test -f cmd/{{ .BINARY_NAME }}/main.go"
+      - test -f cmd/{{ .BINARY_NAME }}/main.go
     cmds:
-      - "GOPROXY=direct {{ .SYS_GO }} mod download"
-      - "{{ .SYS_GO }} build -o ./{{ .BINARY_DIR }}/{{ .BINARY_NAME }} cmd/{{ .BINARY_NAME }}/main.go"
-    env:
-      CGO_ENABLED: 0
-
-  build:amd64:
-    desc: Build bin file from go for Linux amd64
-    cmds:
-      - "GOOS=linux GOARCH=amd64 go build -o ./{{ .BINARY_DIR }}/{{ .BINARY_NAME }}-amd64 cmd/{{ .BINARY_NAME }}/main.go"
-
-  build:img:
-    desc: Build docker image
-    preconditions:
-      - test -f Dockerfile
-    cmds:
-      - "{{ .SYS_DOCKER }} build -t {{ .DOCKER_REPO }}:{{ .LATEST_COMMIT_SHA }} ."
+      - "go mod download"
+      - "CGO_ENABLED=0 go build -ldflags '{{ .GOLDFLAGS }}' -o ./dist/{{ .BINARY_NAME }} cmd/{{ .BINARY_NAME }}/main.go"
 
   fmt:
     desc: Run go fmt
     cmds:
-      - "{{ .SYS_GOFMT }} -s -w ."
-      - "{{ .SYS_GOIMPORTS }} -format-only -d -l -v -w ."
+      - "gofmt -s -w ."
+      - "goimports -format-only -d -l -v -w ."
 
   vet:
     desc: Run go vet ./...
     cmds:
-      - "{{ .SYS_GO }} vet ./..."
-
-  clean:
-    desc: Clean all artifacts
-    cmds:
-      - "rm -rf {{ .BINARY_DIR }}"
-      - rm -f cover.out
+      - "go vet ./..."
 
   test:
-    desc: Run test
+    desc: Run all test
     cmds:
-      - task: test:short
-      - task: test:coverage
+      - "go test -coverprofile=cover.out -v ./..."
+      - task test:race
+      - task test:coverage
 
   test:short:
     desc: Run short test
     cmds:
-      - "{{ .SYS_GO }} test --short -coverprofile=cover.out -v ./..."
+      - "go test --short -coverprofile=cover.out -v ./..."
 
   test:coverage:
     desc: Run test coverage
     cmds:
-      - "{{ .SYS_GO }} tool cover -func=cover.out"
+      - "go tool cover -func=cover.out"
+
+  test:race:
+    desc: Run tests with race
+    cmds:
+      - "go test -race -v ./..."
+
+  test:watch:
+    desc: Run tests with watchexec
+    cmds:
+      - "watchexec -c clear -o do-nothing -d 100ms --exts go 'pkg=\".${WATCHEXEC_COMMON_PATH/$PWD/}/...\"; echo \"running tests for $pkg\"; go test \"$pkg\"'"
 
   lint:
+    desc: Run all lint
+    cmds:
+      - task lint:golangci
+      - task lint:bearer
+
+  lint:golangci:
     desc: Run golangci-lint
     cmds:
-      - task: fmt
-      - "{{ .SYS_GOLANGCI_LINT }} -v run --out-format=colored-line-number --fix"
+      - "golangci-lint -v run"
 
-  bearer:
-    desc: Scan codebase with Bearer
+  lint:bearer:
+    desc: Run Bearer Security
     cmds:
-      - bearer scan .
+      - "bearer scan ."
+
+  install:
+    desc: Build and install localy
+    cmds:
+      - "go install"
