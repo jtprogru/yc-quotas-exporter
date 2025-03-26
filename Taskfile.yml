@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+---
+version: "3"
+
+vars:
+  HOME:
+    sh: echo $HOME
+  BINARY_NAME: yc-quotas-exporter
+  VERSION: dev
+  COMMIT: dev
+  DATE:
+    sh: date -u '+%Y-%m-%dT%H:%M:%SZ'
+  GOLDFLAGS: "-X main.Version={{.VERSION}} -X main.Commit={{.COMMIT}} -X main.Date={{.DATE}} -X main.BuiltBy=taskfile"
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  run:cmd:
+    desc: Run as go run cmd/{{ .BINARY_NAME }}/main.go
+    cmds:
+      - "go run cmd/{{ .BINARY_NAME }}/main.go {{ .CLI_ARGS }}"
+
+  run:bin:
+    desc: Run as binary
+    deps:
+      - build:bin
+    cmds:
+      - "./dist/{{ .BINARY_NAME }} {{ .CLI_ARGS }}"
+
+  tidy:
+    desc: Install all requirements
+    preconditions:
+      - test -f go.mod
+    cmds:
+      - "go mod tidy"
+
+  build:bin:
+    desc: Build bin file from go
+    preconditions:
+      - test -f cmd/{{ .BINARY_NAME }}/main.go
+    cmds:
+      - "go mod download"
+      - "CGO_ENABLED=0 go build -ldflags '{{ .GOLDFLAGS }}' -o ./dist/{{ .BINARY_NAME }} cmd/{{ .BINARY_NAME }}/main.go"
+
+  fmt:
+    desc: Run go fmt
+    cmds:
+      - "gofmt -s -w ."
+      - "goimports -format-only -d -l -v -w ."
+
+  vet:
+    desc: Run go vet ./...
+    cmds:
+      - "go vet ./..."
+
+  test:
+    desc: Run all test
+    cmds:
+      - "go test -coverprofile=cover.out -v ./..."
+      - task test:race
+      - task test:coverage
+
+  test:short:
+    desc: Run short test
+    cmds:
+      - "go test --short -coverprofile=cover.out -v ./..."
+
+  test:coverage:
+    desc: Run test coverage
+    cmds:
+      - "go tool cover -func=cover.out"
+
+  test:race:
+    desc: Run tests with race
+    cmds:
+      - "go test -race -v ./..."
+
+  test:watch:
+    desc: Run tests with watchexec
+    cmds:
+      - "watchexec -c clear -o do-nothing -d 100ms --exts go 'pkg=\".${WATCHEXEC_COMMON_PATH/$PWD/}/...\"; echo \"running tests for $pkg\"; go test \"$pkg\"'"
+
+  lint:
+    desc: Run all lint
+    cmds:
+      - task lint:golangci
+      - task lint:bearer
+
+  lint:golangci:
+    desc: Run golangci-lint
+    cmds:
+      - "golangci-lint -v run"
+
+  lint:bearer:
+    desc: Run Bearer Security
+    cmds:
+      - "bearer scan ."
+
+  install:
+    desc: Build and install localy
+    cmds:
+      - "go install"

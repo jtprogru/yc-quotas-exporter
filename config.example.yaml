@@ -1,0 +1,6 @@
+port: 10999
+host: localhost
+timeout: 30
+debug: false
+cloud_id: "xxxxx"
+token: "<your token>"
