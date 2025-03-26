@@ -27,7 +27,6 @@ func NewClient(cfg *config.Config) (*Client, error) {
 		Credentials: ycsdk.NewIAMTokenCredentials(cfg.Token),
 	})
 	if err != nil {
-		log.Println(err)
 		return nil, err
 	}
 	return &Client{

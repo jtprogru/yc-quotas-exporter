@@ -32,7 +32,6 @@ func (e *Exporter) Run() error {
 	// Create a new QuotaExporter.
 	exporter, err := NewQuotaExporter(e.Config)
 	if err != nil {
-		log.Printf("Error creating QuotaExporter: %v", err)
 		return err
 	}
 
