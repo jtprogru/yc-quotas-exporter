@@ -1,34 +1,26 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/jtprogru/yc-quotas-exporter/internal/config"
 	"github.com/jtprogru/yc-quotas-exporter/internal/yandexcloud"
 )
 
 func main() {
-	configPath := flag.String("config", "config.yaml", "Path to config file")
-	flag.Parse()
-
-	if configPath == nil {
-		log.Fatal("config is required")
+	cfg, err := config.New()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
 	fmt.Println("config inicialization is done")
-	cfg, err := config.New(*configPath)
-	if err != nil {
-		fmt.Println(err)
-	}
 
-	client, err := yandexcloud.New(cfg)
+	pe, err := yandexcloud.NewExporter(cfg)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatalf("Error creating Exporter: %v", err)
 	}
-	fmt.Println("client inicialization is done")
-
-	client.QuotaLimitListService()
+	pe.Run()
 }

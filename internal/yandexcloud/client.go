@@ -12,12 +12,16 @@ import (
 	ycsdk "github.com/yandex-cloud/go-sdk"
 )
 
+const (
+	defaultResourceType = "resource-manager.cloud"
+)
+
 type Client struct {
 	Config *config.Config
 	SDK    *ycsdk.SDK
 }
 
-func New(cfg *config.Config) (*Client, error) {
+func NewClient(cfg *config.Config) (*Client, error) {
 	ctx := context.Background()
 	sdk, err := ycsdk.Build(ctx, ycsdk.Config{
 		Credentials: ycsdk.NewIAMTokenCredentials(cfg.Token),
@@ -36,7 +40,7 @@ func (c *Client) QuotaLimitListService() {
 	defer cancel()
 
 	res, err := c.SDK.QuotaManager().QuotaLimit().ListServices(ctx, &quotamanager.ListServicesRequest{
-		ResourceType: "resource-manager.cloud",
+		ResourceType: defaultResourceType,
 	})
 	if err != nil {
 		fmt.Println("res, err := c.SDK.QuotaManager().QuotaLimit().ListServices(ctx, nil)")
@@ -55,7 +59,7 @@ func (c *Client) QuotaLimitServiceGet(serviceId string) {
 	res, err := c.SDK.QuotaManager().QuotaLimit().Get(ctx, &quotamanager.GetQuotaLimitRequest{
 		Resource: &quotamanager.Resource{
 			Id:   c.Config.CloudID,
-			Type: "resource-manager.cloud",
+			Type: defaultResourceType,
 		},
 		QuotaId: serviceId,
 	})
@@ -73,7 +77,7 @@ func (c *Client) QuotaLimitList(serviceId string) {
 	res, err := c.SDK.QuotaManager().QuotaLimit().List(ctx, &quotamanager.ListQuotaLimitsRequest{
 		Resource: &quotamanager.Resource{
 			Id:   c.Config.CloudID,
-			Type: "resource-manager.cloud",
+			Type: defaultResourceType,
 		},
 		Service: serviceId,
 	})

@@ -1,39 +1,55 @@
 package config
 
 import (
-	"io"
+	"flag"
 	"os"
-	"path/filepath"
-	"time"
+)
 
-	"gopkg.in/yaml.v3"
+const (
+	defaultPort    = 8080
+	defaultHost    = "0.0.0.0"
+	defaultTimeout = 5
+	defaultDebug   = false
 )
 
 type Config struct {
-	Port    uint16        `env:"PORT" envDefault:"8080" yaml:"port"`
-	Host    string        `env:"HOST" envDefault:"localhost" yaml:"host"`
-	Timeout time.Duration `env:"TIMEOUT" envDefault:"5" yaml:"timeout"`
-	Debug   bool          `env:"DEBUG" envDefault:"false" yaml:"debug"`
-	Token   string        `env:"TOKEN" envDefault:"" yaml:"token"`
-	CloudID string        `env:"CLOUD_ID" envDefault:"" yaml:"cloud_id"`
+	Port    uint16
+	Host    string
+	Timeout int
+	Debug   bool
+	Token   string
+	CloudID string
 }
 
-func New(configPath string) (*Config, error) {
-	filename := filepath.Base(configPath)
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	rawFileContent, err := io.ReadAll(file)
-	if err != nil {
-		return nil, err
-	}
-
-	var config *Config
-	err = yaml.Unmarshal(rawFileContent, &config)
-	if err != nil {
-		return nil, err
-	}
-
+func New() (*Config, error) {
+	config := initConfig()
 	return config, nil
+}
+
+func initConfig() *Config {
+	port := flag.Uint("port", defaultPort, "Port to listen on")
+	host := flag.String("host", defaultHost, "Host to listen on")
+	timeout := flag.Int("timeout", defaultTimeout, "Request timeout in seconds")
+	debug := flag.Bool("debug", defaultDebug, "Enable debug mode")
+
+	flag.Parse()
+
+	token := os.Getenv("TOKEN")
+	if token == "" {
+		panic("TOKEN environment variable is required")
+	}
+
+	cloudID := os.Getenv("CLOUD_ID")
+	if cloudID == "" {
+		panic("CLOUD_ID environment variable is required")
+	}
+
+	return &Config{
+		Port:    uint16(*port),
+		Host:    *host,
+		Timeout: *timeout,
+		Debug:   *debug,
+		Token:   token,
+		CloudID: cloudID,
+	}
 }
