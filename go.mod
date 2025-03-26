@@ -1,8 +1,6 @@
 module github.com/jtprogru/yc-quotas-exporter
 
-go 1.21
-
-toolchain go1.23
+go 1.23
 
 require (
 	github.com/prometheus/client_golang v1.11.0
