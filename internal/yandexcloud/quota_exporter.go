@@ -2,14 +2,13 @@ package yandexcloud
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/prometheus/client_golang/prometheus"
+	quotamanager "github.com/yandex-cloud/go-genproto/yandex/cloud/quotamanager/v1"
 	"google.golang.org/grpc"
 
 	"github.com/jtprogru/yc-quotas-exporter/internal/config"
-	quotamanager "github.com/yandex-cloud/go-genproto/yandex/cloud/quotamanager/v1"
 )
 
 // QuotaLimitServiceClient is a quotamanager.QuotaLimitServiceClient with
@@ -18,7 +17,7 @@ type QuotaLimitServiceClient struct {
 	getConn func(ctx context.Context) (*grpc.ClientConn, error)
 }
 
-// Get implements quotamanager.QuotaLimitServiceClient
+// Get implements quotamanager.QuotaLimitServiceClient.
 func (c *QuotaLimitServiceClient) Get(ctx context.Context, in *quotamanager.GetQuotaLimitRequest, opts ...grpc.CallOption) (*quotamanager.QuotaLimit, error) {
 	conn, err := c.getConn(ctx)
 	if err != nil {
@@ -27,7 +26,7 @@ func (c *QuotaLimitServiceClient) Get(ctx context.Context, in *quotamanager.GetQ
 	return quotamanager.NewQuotaLimitServiceClient(conn).Get(ctx, in, opts...)
 }
 
-// List implements quotamanager.QuotaLimitServiceClient
+// List implements quotamanager.QuotaLimitServiceClient.
 func (c *QuotaLimitServiceClient) List(ctx context.Context, in *quotamanager.ListQuotaLimitsRequest, opts ...grpc.CallOption) (*quotamanager.ListQuotaLimitsResponse, error) {
 	conn, err := c.getConn(ctx)
 	if err != nil {
@@ -76,7 +75,7 @@ func (it *QuotaLimitIterator) Next() bool {
 		it.items = it.items[1:]
 		return true
 	}
-	it.items = nil // consume last item, if any
+	it.items = nil // consume last item, if any.
 
 	if it.started && it.request.PageToken == "" {
 		return false
@@ -105,10 +104,11 @@ func (it *QuotaLimitIterator) Take(size int64) ([]*quotamanager.QuotaLimit, erro
 		return nil, it.err
 	}
 
-	if size == 0 {
-		size = 1 << 32 // something insanely large
+	s := size
+	if s == 0 {
+		s = 1 << 32 // something insanely large.
 	}
-	it.requestedSize = size
+	it.requestedSize = s
 	defer func() {
 		// reset iterator for future calls.
 		it.requestedSize = 0
@@ -143,7 +143,7 @@ func (it *QuotaLimitIterator) Error() error {
 	return it.err
 }
 
-// ListServices implements quotamanager.QuotaLimitServiceClient
+// ListServices implements quotamanager.QuotaLimitServiceClient.
 func (c *QuotaLimitServiceClient) ListServices(ctx context.Context, in *quotamanager.ListServicesRequest, opts ...grpc.CallOption) (*quotamanager.ListServicesResponse, error) {
 	conn, err := c.getConn(ctx)
 	if err != nil {
@@ -192,7 +192,7 @@ func (it *QuotaLimitServicesIterator) Next() bool {
 		it.items = it.items[1:]
 		return true
 	}
-	it.items = nil // consume last item, if any
+	it.items = nil // consume last item, if any.
 
 	if it.started && it.request.PageToken == "" {
 		return false
@@ -221,10 +221,12 @@ func (it *QuotaLimitServicesIterator) Take(size int64) ([]*quotamanager.Service,
 		return nil, it.err
 	}
 
-	if size == 0 {
-		size = 1 << 32 // something insanely large
+	s := size
+
+	if s == 0 {
+		s = 1 << 32 // something insanely large.
 	}
-	it.requestedSize = size
+	it.requestedSize = s
 	defer func() {
 		// reset iterator for future calls.
 		it.requestedSize = 0
@@ -271,13 +273,14 @@ func NewQuotaExporter(cfg *config.Config) (*QuotaExporter, error) {
 	return &QuotaExporter{client: client}, nil
 }
 
-func (qe *QuotaExporter) ExportMetrics() {
+func (qe *QuotaExporter) ExportMetrics() error {
 	servicesIter := qe.client.SDK.QuotaManager().QuotaLimit().QuotaLimitServicesIterator(context.Background(), &quotamanager.ListServicesRequest{
 		ResourceType: defaultResourceType,
 	})
 	services, err := servicesIter.TakeAll()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("servicesIter.TakeAll err: %s", err)
+		return err
 	}
 
 	for _, service := range services {
@@ -298,9 +301,10 @@ func (qe *QuotaExporter) ExportMetrics() {
 			qe.exportQuotaMetric(service, quotaLimit)
 		}
 	}
+	return nil
 }
 
-func (qe *QuotaExporter) exportQuotaMetric(service *quotamanager.Service, quota *quotamanager.QuotaLimit) {
+func (qe *QuotaExporter) exportQuotaMetric(service *quotamanager.Service, quota *quotamanager.QuotaLimit) { //nolint:revive // false positive
 	var limitValue, usageValue float64
 	var quotaID string
 
@@ -316,7 +320,7 @@ func (qe *QuotaExporter) exportQuotaMetric(service *quotamanager.Service, quota 
 
 	limitMetric := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name:        "yandex_cloud_quota_limit",
-		Help:        fmt.Sprintf("Quota limit"),
+		Help:        "Quota limit",
 		ConstLabels: prometheus.Labels{"service": service.Id, "quota": quotaID},
 	})
 	limitMetric.Set(limitValue)
@@ -324,7 +328,7 @@ func (qe *QuotaExporter) exportQuotaMetric(service *quotamanager.Service, quota 
 
 	usageMetric := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name:        "yandex_cloud_quota_usage",
-		Help:        fmt.Sprintf("Quota usage"),
+		Help:        "Quota usage",
 		ConstLabels: prometheus.Labels{"service": service.Id, "quota": quotaID},
 	})
 	usageMetric.Set(usageValue)
