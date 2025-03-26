@@ -2,9 +2,13 @@ package yandexcloud
 
 import (
 	"context"
+	"fmt"
+	"log"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 
+	"github.com/jtprogru/yc-quotas-exporter/internal/config"
 	quotamanager "github.com/yandex-cloud/go-genproto/yandex/cloud/quotamanager/v1"
 )
 
@@ -253,4 +257,76 @@ func (it *QuotaLimitServicesIterator) Value() *quotamanager.Service {
 
 func (it *QuotaLimitServicesIterator) Error() error {
 	return it.err
+}
+
+type QuotaExporter struct {
+	client *Client
+}
+
+func NewQuotaExporter(cfg *config.Config) (*QuotaExporter, error) {
+	client, err := NewClient(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &QuotaExporter{client: client}, nil
+}
+
+func (qe *QuotaExporter) ExportMetrics() {
+	servicesIter := qe.client.SDK.QuotaManager().QuotaLimit().QuotaLimitServicesIterator(context.Background(), &quotamanager.ListServicesRequest{
+		ResourceType: defaultResourceType,
+	})
+	services, err := servicesIter.TakeAll()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, service := range services {
+		quotaLimits, err := qe.client.SDK.QuotaManager().QuotaLimit().List(context.Background(), &quotamanager.ListQuotaLimitsRequest{
+			Resource: &quotamanager.Resource{
+				Id:   qe.client.Config.CloudID,
+				Type: defaultResourceType,
+			},
+			Service: service.Id,
+		})
+		if err != nil {
+			log.Printf("Error getting quota limits for service %s: %v", service.Id, err)
+			qe.exportQuotaMetric(service, nil)
+			continue
+		}
+
+		for _, quotaLimit := range quotaLimits.QuotaLimits {
+			qe.exportQuotaMetric(service, quotaLimit)
+		}
+	}
+}
+
+func (qe *QuotaExporter) exportQuotaMetric(service *quotamanager.Service, quota *quotamanager.QuotaLimit) {
+	var limitValue, usageValue float64
+	var quotaID string
+
+	if quota == nil {
+		limitValue = -1
+		usageValue = -1
+		quotaID = "unknown"
+	} else {
+		limitValue = float64(quota.Limit.GetValue())
+		usageValue = float64(quota.Usage.GetValue())
+		quotaID = quota.QuotaId
+	}
+
+	limitMetric := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name:        "yandex_cloud_quota_limit",
+		Help:        fmt.Sprintf("Quota limit"),
+		ConstLabels: prometheus.Labels{"service": service.Id, "quota": quotaID},
+	})
+	limitMetric.Set(limitValue)
+	prometheus.MustRegister(limitMetric)
+
+	usageMetric := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name:        "yandex_cloud_quota_usage",
+		Help:        fmt.Sprintf("Quota usage"),
+		ConstLabels: prometheus.Labels{"service": service.Id, "quota": quotaID},
+	})
+	usageMetric.Set(usageValue)
+	prometheus.MustRegister(usageMetric)
 }
