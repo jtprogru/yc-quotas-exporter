@@ -3,7 +3,7 @@ module github.com/jtprogru/yc-quotas-exporter
 go 1.25.0
 
 require (
-	github.com/prometheus/client_golang v1.11.0
+	github.com/prometheus/client_golang v1.11.1
 	github.com/yandex-cloud/go-genproto v0.0.0-20250227104522-20525f72be7d
 	github.com/yandex-cloud/go-sdk v0.0.0-20250227104620-68cb3d5eea41
 	google.golang.org/grpc v1.66.2
