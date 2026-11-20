@@ -1,0 +1,18 @@
+lint:
+    use:
+        - DEFAULT
+    enum_zero_value_suffix: _NONE
+    service_suffix: API
+    ignore: []
+    except: []
+    allow_comment_ignores: false
+    ignore_only: {}
+deps:
+  - github.com/yandex-cloud/cloudapi
+  - github.com/yandex-cloud/go-sdk
+generate:
+    inputs: []
+    plugins: []
+breaking:
+    ignore: []
+    against_git_ref: master
